@@ -1,13 +1,12 @@
-import { Client } from '@line/bot-sdk'
+import line from '@line/bot-sdk';
 import admin from 'firebase-admin';
 
 
 // linebot初期化
-const config = {
+const client = new line.Client({
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
   channelSecret: process.env.LINE_CHANNEL_SECRET,
-};
-const client = new Client(config);
+});
 
 
 // firestore初期化
