@@ -11,12 +11,11 @@ const config = {
 
 const client = new Client(config);
 
-// LINEの署名チェック
+// LINE署名チェック用ミドルウェア
 app.post('/api/webhook', middleware(config), async (req, res) => {
   try {
     const events = req.body.events;
-    const promises = events.map(handleEvent);
-    await Promise.all(promises);
+    await Promise.all(events.map(handleEvent));
     res.status(200).send('OK');
   } catch (err) {
     console.error(err);
@@ -24,11 +23,10 @@ app.post('/api/webhook', middleware(config), async (req, res) => {
   }
 });
 
-// イベント処理
+// イベント処理（オウム返し）
 async function handleEvent(event) {
-  if (event.type !== 'message' || event.message.type !== 'text') {
-    return Promise.resolve(null); // テキスト以外は無視
-  }
+  // テキストメッセージ以外は無視
+  if (event.type !== 'message' || event.message.type !== 'text') return;
 
   // 受け取ったテキストをそのまま返信
   return client.replyMessage(event.replyToken, {
