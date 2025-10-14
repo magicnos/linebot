@@ -163,5 +163,5 @@ async function sendUserAbsence(userId, replyToken){
   sendText += `\n総欠時 : ${sum}`;
 
   // 送信
-  replyTokenMessage(replyToken, sendText);
+  await replyTokenMessage(replyToken, sendText);
 }
