@@ -3,8 +3,8 @@ import { json } from 'micro';
 
 // 環境変数で設定
 const config = {
-  channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
-  channelSecret: process.env.LINE_CHANNEL_SECRET
+  channelAccessToken: 'G4T1pSCV/EOV78nbEp9R3FGrAG+a3u3oBRJ5ZlvTrwqpaoTP+EvoupeqHumqdo47Rc3T0MElZqVwLwzDpImzrGfBW/SHHNASZ7zd6/r9JC2hvvTU221y8uePzocgjb8ndAOOej2Sr4ZzfPjIzDlewwdB04t89/1O/w1cDnyilFU=',
+  channelSecret: 'f9ee4927cac57f57ba2c1c5eabb8a3da'
 };
 
 const client = new Client(config);
