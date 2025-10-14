@@ -10,7 +10,9 @@ const client = new line.Client({
 
 
 // firestore初期化
-const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_KEY);
+const serviceAccount = JSON.parse(
+  process.env.FIREBASE_SERVICE_KEY.replace(/\\n/g, '\n')
+);
 admin.initializeApp({credential: admin.credential.cert(serviceAccount),});
 const db = admin.firestore(); // Firestore インスタンス取得
 
