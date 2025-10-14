@@ -1,4 +1,4 @@
-import { Client } from "@line/bot-sdk";
+import line from "@line/bot-sdk";
 import { writeData, readData } from "./firestore.js";
 
 const client = new Client({
