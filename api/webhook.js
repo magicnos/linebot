@@ -17,19 +17,23 @@ const db = admin.firestore(); // Firestore インスタンス取得
 
 
 
-export default async function handler(req, res) {
+export default async function handler(req, res){
   // POST以外のリクエストは拒否
   if (req.method !== 'POST') {
     res.status(405).send('Method Not Allowed');
     return;
   }
 
-  // Vercelの場合、req.bodyは生のストリームのためJSONに変換
-  const body = await (async () => {
+  let body;
+  if (req.body && req.body.events){
+    // JSON化済みならそのまま使う
+    body = req.body;
+  }else{
+    // 違うならパース
     let data = '';
     for await (const chunk of req) data += chunk;
-    return JSON.parse(data);
-  })();
+    body = JSON.parse(data);
+  }
 
   const events = body.events || [];
 
@@ -137,7 +141,7 @@ async function sendUserAbsence(userId, replyToken){
       if (i != 0){
         sendText += `\n${'月火水木金'[Math.floor(i/6)]}曜\n`;
       }else{
-        sendText += `${'月火水木金'[Math.florr(i/6)]}曜\n`;
+        sendText += `${'月火水木金'[Math.floor(i/6)]}曜\n`;
       }
     }
     // 時限
