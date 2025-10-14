@@ -1,60 +1,40 @@
-import { Client } from "@line/bot-sdk";
-import { writeData, readData } from "./firestore.js";
+import { Client, middleware } from '@line/bot-sdk';
+import express from 'express';
 
-const client = new Client({
+const app = express();
+
+// 環境変数に設定しておく
+const config = {
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
+  channelSecret: process.env.LINE_CHANNEL_SECRET
+};
+
+const client = new Client(config);
+
+// LINEの署名チェック
+app.post('/api/webhook', middleware(config), async (req, res) => {
+  try {
+    const events = req.body.events;
+    const promises = events.map(handleEvent);
+    await Promise.all(promises);
+    res.status(200).send('OK');
+  } catch (err) {
+    console.error(err);
+    res.status(500).send(err.message);
+  }
 });
 
-export default async function handler(req, res){
-  if (req.method !== "POST") return res.status(405).end();
-
-  const events = req.body.events;
-
-  // 複数イベントを順次処理
-  for (const event of events){
-    const userId = event.source.userId;
-    const replyToken = event.replyToken;
-
-    switch (event.type){
-      case 'message':
-        if (event.message.type != 'text') return;
-
-        const getMessage = event.message.text;
-        await replyTokenMessage(replyToken, getMessage);
-
-
-        break;
-
-      case 'follow':
-        break;
-
-      case 'postback':
-        break;
-
-      default:
-        break;
-    }
-  
+// イベント処理
+async function handleEvent(event) {
+  if (event.type !== 'message' || event.message.type !== 'text') {
+    return Promise.resolve(null); // テキスト以外は無視
   }
 
-  res.status(200).end();
-}
-
-
-
-// replyToken返信
-async function replyTokenMessage(replyToken, message){
-  await client.replyMessage(replyToken, {
-    type: "text",
-    text: message,
+  // 受け取ったテキストをそのまま返信
+  return client.replyMessage(event.replyToken, {
+    type: 'text',
+    text: `あなたはこう言いました: "${event.message.text}"`
   });
 }
 
-
-
-
-        // // Firestoreに保存
-        // await writeData("messages", userId, { latest: text, time: Date.now() });
-
-        // // Firestoreからデータ取得
-        // const stored = await readData("messages", userId);
+export default app;
