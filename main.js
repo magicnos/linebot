@@ -1,62 +1,68 @@
 export default {
-  async fetch(request, env) {
+  async fetch(request, env){
+    // チャネルアクセストークン
+    const CHANNEL_ACCESS_TOKEN = env.CHANNEL_ACCESS_TOKEN;
+
     // POST以外は拒否
     if (request.method !== "POST") {
       return new Response("Method Not Allowed", { status: 405 });
     }
 
-    // リクエストボディを取得
+    // リクエストボディをパース
     let body;
     try {
       body = await request.json();
-    } catch (e) {
+    }catch (e){
       return new Response("Invalid JSON", { status: 400 });
     }
 
     // イベント情報を取得
     const event = body.events?.[0];
-    if (!event || !event.message || !event.replyToken) {
+    if (!event || !event.message || !event.replyToken){
       return new Response("No valid event", { status: 200 });
     }
 
-    // メッセージ本文とreplyTokenを取得
-    const userMessage = event.message.text;
-    const replyToken = event.replyToken;
 
-    // オウム返し
-    await replyTokenMessage(replyToken, userMessage, env);
+    const replyToken = event.replyToken; // リプレイトークン
+    const userId = event.source.userId; // ユーザーID
 
+    // メッセージ内容を取得
+    const getMessage = event.message.text;
+
+    // 返信
+    await replyToLine(replyToken, getMessage, CHANNEL_ACCESS_TOKEN);
+
+
+    // レスポンスを返す
     return new Response("OK", { status: 200 });
   },
 };
 
-// LINEへの返信処理
-async function replyTokenMessage(replyToken, message, env) {
-  const replyEndpoint = "https://api.line.me/v2/bot/message/reply";
+
+// replyTokenで返信
+async function replyToLine(replyToken, message, channelAccessToken) {
+  const url = "https://api.line.me/v2/bot/message/reply";
+
   const headers = {
     "Content-Type": "application/json",
-    Authorization: `Bearer ${env.CHANNEL_ACCESS_TOKEN}`, // ← 環境変数から取得！
+    "Authorization": `Bearer ${channelAccessToken}`,
   };
 
-  const payload = {
+  const body = JSON.stringify({
     replyToken,
     messages: [
       {
         type: "text",
-        text: message,
+        text: message, // そのままオウム返し
       },
     ],
-  };
-
-  const res = await fetch(replyEndpoint, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(payload),
   });
 
-  // 応答をチェック
-  if (!res.ok) {
-    const errorText = await res.text();
-    console.error("LINE API Error:", errorText);
-  }
+  const res = await fetch(url, {
+    method: "POST",
+    headers,
+    body,
+  });
+
+  await res.text();
 }
