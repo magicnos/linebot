@@ -155,13 +155,12 @@ async function sendUserAbsence(userId, replyToken){
   }
 
   // 総欠時を追加
-  sendText += '\n';
   const absence = Object.values(absenceDoc);
   let sum = 0;
   for (const i of absence){
     sum += i;
   }
-  sendText += `総欠時 : ${sum}`;
+  sendText += `\n総欠時 : ${sum}`;
 
   // 送信
   replyTokenMessage(replyToken, sendText);
