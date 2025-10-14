@@ -1,13 +1,23 @@
 let CHANNEL_ACCESS_TOKEN;
 
-// JWTアクセストークン生成
-async function getAccessToken(env) {
-  const header = {
-    alg: "RS256",
-    typ: "JWT",
-  };
+// ================================
+// Firestore関連（改良版）
+// ================================
 
+// --- JWTトークンをキャッシュする（毎回生成しないように） ---
+let FIREBASE_TOKEN_CACHE = { token: null, exp: 0 };
+
+// Firestoreアクセストークン取得（キャッシュ付き）
+async function getAccessToken(env) {
   const now = Math.floor(Date.now() / 1000);
+
+  // キャッシュが有効なら再利用
+  if (FIREBASE_TOKEN_CACHE.token && FIREBASE_TOKEN_CACHE.exp > now + 60) {
+    return FIREBASE_TOKEN_CACHE.token;
+  }
+
+  // JWTヘッダとペイロード
+  const header = { alg: "RS256", typ: "JWT" };
   const payload = {
     iss: env.FIREBASE_CLIENT_EMAIL,
     scope: "https://www.googleapis.com/auth/datastore",
@@ -16,14 +26,37 @@ async function getAccessToken(env) {
     iat: now,
   };
 
+  // JWT生成
+  const jwt = await createJWT(header, payload, env.FIREBASE_PRIVATE_KEY);
+
+  // Google OAuth2にPOSTしてアクセストークンを取得
+  const res = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`,
+  });
+
+  const data = await res.json();
+  if (!data.access_token) throw new Error("アクセストークン取得失敗");
+
+  // キャッシュ保存
+  FIREBASE_TOKEN_CACHE = {
+    token: data.access_token,
+    exp: now + 3600,
+  };
+
+  return data.access_token;
+}
+
+
+// JWT作成関数（PEM → ArrayBuffer → 署名）
+async function createJWT(header, payload, privateKeyPEM) {
   const encoder = new TextEncoder();
   const headerBase64 = btoa(JSON.stringify(header));
   const payloadBase64 = btoa(JSON.stringify(payload));
   const toSign = `${headerBase64}.${payloadBase64}`;
 
-  const privateKeyPEM = env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n");
-  const keyBuffer = pemToArrayBuffer(privateKeyPEM);
-
+  const keyBuffer = pemToArrayBuffer(privateKeyPEM.replace(/\\n/g, "\n"));
   const key = await crypto.subtle.importKey(
     "pkcs8",
     keyBuffer,
@@ -35,18 +68,7 @@ async function getAccessToken(env) {
   const signature = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", key, encoder.encode(toSign));
   const signatureBase64 = btoa(String.fromCharCode(...new Uint8Array(signature)));
 
-  const jwt = `${toSign}.${signatureBase64}`;
-
-  // アクセストークン取得
-  const res = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`,
-  });
-
-  const data = await res.json();
-  if (!data.access_token) throw new Error("アクセストークン取得失敗");
-  return data.access_token;
+  return `${toSign}.${signatureBase64}`;
 }
 
 
@@ -54,63 +76,87 @@ async function getAccessToken(env) {
 function pemToArrayBuffer(pem) {
   const b64 = pem.replace(/-----[^-]+-----/g, "").replace(/\s+/g, "");
   const binary = atob(b64);
-  const buffer = new ArrayBuffer(binary.length);
-  const bytes = new Uint8Array(buffer);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return buffer;
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes.buffer;
 }
 
+
 // ================================
-// Firestore関連関数
+// Firestoreユーティリティ
 // ================================
 const firestore = {
   // ドキュメント取得
   async getDocument(env, collection, docId) {
     const token = await getAccessToken(env);
     const url = `https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents/${collection}/${docId}`;
+
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${token}` },
     });
-    if (!res.ok) throw new Error(await res.text());
-    const doc = await res.json();
 
-    // Firestoreのfields形式を通常のオブジェクトに変換
-    const data = {};
-    for (const key in doc.fields) {
-      const val = doc.fields[key];
-      if (val.stringValue !== undefined) data[key] = val.stringValue;
-      else if (val.integerValue !== undefined) data[key] = Number(val.integerValue);
+    if (!res.ok) {
+      console.error("Firestore GET Error:", await res.text());
+      throw new Error("Firestoreドキュメント取得失敗");
     }
-    return data;
+
+    const doc = await res.json();
+    return convertFirestoreToObject(doc.fields);
   },
 
-  // ドキュメント作成・更新
+  // ドキュメント更新（存在しなければ自動作成）
   async updateDocument(env, collection, docId, data) {
     const token = await getAccessToken(env);
-    const url = `https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents/${collection}/${docId}`;
+    const url = `https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents/${collection}/${docId}?updateMask.fieldPaths=*`;
 
-    // Firestore形式に変換
-    const fields = {};
-    for (const key in data) {
-      fields[key] = { stringValue: String(data[key]) };
-    }
+    const fields = convertObjectToFirestore(data);
 
-    const body = JSON.stringify({ fields });
     const res = await fetch(url, {
       method: "PATCH",
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body,
+      body: JSON.stringify({ fields }),
     });
 
-    if (!res.ok) throw new Error(await res.text());
+    if (!res.ok) {
+      console.error("Firestore UPDATE Error:", await res.text());
+      throw new Error("Firestoreドキュメント更新失敗");
+    }
+
     return await res.json();
   },
 };
+
+
+// ================================
+// Firestore ↔ JS変換ヘルパー
+// ================================
+
+// Firestore → 通常オブジェクト
+function convertFirestoreToObject(fields = {}) {
+  const data = {};
+  for (const key in fields) {
+    const val = fields[key];
+    const type = Object.keys(val)[0];
+    data[key] = val[type];
+  }
+  return data;
+}
+
+// JSオブジェクト → Firestore形式
+function convertObjectToFirestore(obj) {
+  const fields = {};
+  for (const key in obj) {
+    const value = obj[key];
+    if (typeof value === "number") fields[key] = { integerValue: value };
+    else if (typeof value === "boolean") fields[key] = { booleanValue: value };
+    else fields[key] = { stringValue: String(value) };
+  }
+  return fields;
+}
+
 
 
 
@@ -144,10 +190,14 @@ export default {
               break;
 
             case "ヘルプ":
-              await replyTokenMessage(
-                replyToken,
-                "Q. ボタンの色を変えたら文字が見えなくなりました。\nA. 「colorCode」と送信してください。\n\nVersion 2.1.0\n最近の更新内容: 欠時数機能改修"
-              );
+              let text = '';
+
+              text += 'Q.\n授業の名前がみつかりません。\n';
+              text += 'A.\nLINEというアプリを使っている構造上、授業の名前を一部省略しています。誰でもどの授業か分かるように努めていますが、自分が探している授業がどれか分からなかった場合、フィードバックでお伝えください。\n\n\n';
+              text += '\n\n';
+              text += 'Version 2.2.0\n最近の更新内容\n・時間割関係及び欠時数関係の処理を、時間割アプリとして変更\n・応答速度の大幅な向上';
+
+              await replyTokenMessage(replyToken, text);
               break;
 
             case "フィードバック":
