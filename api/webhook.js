@@ -11,25 +11,9 @@ const client = new Client(config);
 
 // Vercelではサーバレス関数として直接エクスポート
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    res.status(405).send('Method Not Allowed');
-    return;
-  }
-
-  // ミドルウェア的に署名チェック
-  const signature = req.headers['x-line-signature'];
-  const body = await json(req);
-
-  // LINE署名の検証
-  try {
-    middleware(config)(req, res, () => {}); // 空関数でmiddlewareを通す
-  } catch (err) {
-    console.error(err);
-    res.status(401).send('Invalid signature');
-    return;
-  }
 
   // イベント処理
+  const body = await json(req);
   const events = body.events;
   await Promise.all(events.map(handleEvent));
 
