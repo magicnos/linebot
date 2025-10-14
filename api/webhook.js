@@ -1,4 +1,4 @@
-import Client from '@line/bot-sdk';
+import { Client } from '@line/bot-sdk'
 import admin from 'firebase-admin';
 
 
@@ -119,7 +119,7 @@ async function getDocument(path){
 // DB更新(部分更新)
 async function updateDocument(path, data) {
   const docRef = db.doc(path);
-  await docRef.set(data, true);
+  await docRef.set(data, {merge: true});
 }
 
 
@@ -135,9 +135,9 @@ async function sendUserAbsence(userId, replyToken){
     // 曜日
     if (i % 6 == 0){
       if (i != 0){
-        sendText += `\n${'月火水木金'[i/6]}曜\n`;
+        sendText += `\n${'月火水木金'[Math.floor(i/6)]}曜\n`;
       }else{
-        sendText += `${'月火水木金'[i/6]}曜\n`;
+        sendText += `${'月火水木金'[Math.florr(i/6)]}曜\n`;
       }
     }
     // 時限
