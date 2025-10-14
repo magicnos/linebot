@@ -1,9 +1,7 @@
 import { Client, middleware } from '@line/bot-sdk';
-import express from 'express';
+import { json } from 'micro';
 
-const app = express();
 
-// 環境変数
 const config = {
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
   channelSecret: process.env.LINE_CHANNEL_SECRET
@@ -11,37 +9,44 @@ const config = {
 
 const client = new Client(config);
 
-// --- Webhookエンドポイント ---
-app.post('/api/webhook', middleware(config), async (req, res) => {
+// Vercelではサーバレス関数として直接エクスポート
+export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    res.status(405).send('Method Not Allowed');
+    return;
+  }
+
+  // ミドルウェア的に署名チェック
+  const signature = req.headers['x-line-signature'];
+  const body = await json(req);
+
+  // LINE署名の検証
   try {
-    const events = req.body.events;
-    await Promise.all(events.map(handleEvent));
-    res.status(200).send('OK');
+    middleware(config)(req, res, () => {}); // 空関数でmiddlewareを通す
   } catch (err) {
     console.error(err);
-    res.status(500).send(err.message);
+    res.status(401).send('Invalid signature');
+    return;
   }
-});
 
-// --- イベント処理 ---
+  // イベント処理
+  const events = body.events;
+  await Promise.all(events.map(handleEvent));
+
+  // LINEに返すHTTPステータスは必ず200
+  res.status(200).send('OK');
+}
+
+// オウム返し関数
 async function handleEvent(event) {
-  // テキストメッセージ以外は無視
   if (event.type !== 'message' || event.message.type !== 'text') return;
-
-  // テキストをreplyTokenで返信する関数を呼ぶ
   await replyText(event.replyToken, event.message.text);
 }
 
-// --- オウム返し関数 ---
+// replyToken返信
 async function replyText(replyToken, text) {
-  try {
-    await client.replyMessage(replyToken, {
-      type: 'text',
-      text: `あなたはこう言いました: "${text}"`
-    });
-  } catch (err) {
-    console.error('返信エラー:', err);
-  }
+  await client.replyMessage(replyToken, {
+    type: 'text',
+    text: text
+  });
 }
-
-export default app;
