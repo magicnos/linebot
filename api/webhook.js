@@ -18,6 +18,8 @@ if (!admin.apps.length) {
 }
 const db = admin.firestore(); // Firestore インスタンス取得
 
+
+
 export default async function handler(req, res) {
   try {
     // POST以外のリクエストは拒否
