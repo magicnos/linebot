@@ -8,10 +8,11 @@ try{
     channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
     channelSecret: process.env.LINE_CHANNEL_SECRET
   };
+  const client = new Client(config);
 }catch{
 
 }
-const client = new Client(config);
+
 
 
 
