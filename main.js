@@ -1,41 +1,41 @@
-const CHANNEL_ACCESS_TOKEN =
-'G4T1pSCV/EOV78nbEp9R3FGrAG+a3u3oBRJ5ZlvTrwqpaoTP+EvoupeqHumqdo47Rc3T0MElZqVwLwzDpImzrGfBW/SHHNASZ7zd6/r9JC2hvvTU221y8uePzocgjb8ndAOOej2Sr4ZzfPjIzDlewwdB04t89/1O/w1cDnyilFU='
-
-
-
 export default {
-  async fetch(request, env){
+  async fetch(request, env) {
+    // POST以外は拒否
+    if (request.method !== "POST") {
+      return new Response("Method Not Allowed", { status: 405 });
+    }
 
-    // リクエストのJSONボディを取得
-    const body = await request.json();
+    // リクエストボディを取得
+    let body;
+    try {
+      body = await request.json();
+    } catch (e) {
+      return new Response("Invalid JSON", { status: 400 });
+    }
 
-    // イベント情報を取得（メッセージがない場合は無視）
+    // イベント情報を取得
     const event = body.events?.[0];
     if (!event || !event.message || !event.replyToken) {
       return new Response("No valid event", { status: 200 });
     }
 
-    // メッセージ本文を取得
+    // メッセージ本文とreplyTokenを取得
     const userMessage = event.message.text;
-
-    // replyToken
     const replyToken = event.replyToken;
 
-    // 返信
-    replyTokenMessage(replyToken, userMessage);
+    // オウム返し
+    await replyTokenMessage(replyToken, userMessage, env);
 
     return new Response("OK", { status: 200 });
   },
 };
 
-
-// 返信
-async function replyTokenMessage(replyToken, message){
-
+// LINEへの返信処理
+async function replyTokenMessage(replyToken, message, env) {
   const replyEndpoint = "https://api.line.me/v2/bot/message/reply";
   const headers = {
     "Content-Type": "application/json",
-    Authorization: `Bearer ${CHANNEL_ACCESS_TOKEN}`,
+    Authorization: `Bearer ${env.CHANNEL_ACCESS_TOKEN}`, // ← 環境変数から取得！
   };
 
   const payload = {
@@ -43,17 +43,20 @@ async function replyTokenMessage(replyToken, message){
     messages: [
       {
         type: "text",
-        text: message, // オウム返し
+        text: message,
       },
     ],
   };
 
-  // LINEに返信
   const res = await fetch(replyEndpoint, {
     method: "POST",
     headers,
     body: JSON.stringify(payload),
   });
 
-  await res.text();
+  // 応答をチェック
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error("LINE API Error:", errorText);
+  }
 }
