@@ -2,18 +2,20 @@ import { Client } from '@line/bot-sdk';
 import { json } from 'micro';
 
 
-// linebotSDK?を初期化
-const config = {
-  channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
-  channelSecret: process.env.LINE_CHANNEL_SECRET
-};
-const client = new Client(config);
+// // linebotSDK?を初期化
+// const config = {
+//   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
+//   channelSecret: process.env.LINE_CHANNEL_SECRET
+// };
+// const client = new Client(config);
 
 
 
 
 
 export default async function handler(req, res) {
+  console.log('TOKEN:', process.env.LINE_CHANNEL_ACCESS_TOKEN);
+  console.log('SECRET:', process.env.LINE_CHANNEL_SECRET);
 
   // const body = await json(req);
   // const events = body.events || [];
