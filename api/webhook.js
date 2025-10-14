@@ -7,6 +7,7 @@ const client = new Client({
   channelSecret: process.env.LINE_CHANNEL_SECRET,
 });
 
+
 // firestore初期化
 const serviceAccount = JSON.parse(
   process.env.FIREBASE_SERVICE_KEY.replace(/\\n/g, '\n')
