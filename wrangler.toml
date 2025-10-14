@@ -1,0 +1,3 @@
+name = "linebot"
+main = "main.js"
+compatibility_date = "2025-10-14"
