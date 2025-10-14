@@ -1,8 +1,9 @@
 let CHANNEL_ACCESS_TOKEN;
 
-
-// JWTトークンを生成してアクセストークンを取得
-async function getAccessToken(env){
+// ================================
+// JWTアクセストークン生成
+// ================================
+async function getAccessToken(env) {
   const header = {
     alg: "RS256",
     typ: "JWT",
@@ -23,31 +24,35 @@ async function getAccessToken(env){
   const toSign = `${headerBase64}.${payloadBase64}`;
 
   const privateKeyPEM = env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n");
+  const keyBuffer = pemToArrayBuffer(privateKeyPEM);
+
   const key = await crypto.subtle.importKey(
     "pkcs8",
-    str2ab(privateKeyPEM),
+    keyBuffer,
     { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
     false,
     ["sign"]
   );
+
   const signature = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", key, encoder.encode(toSign));
   const signatureBase64 = btoa(String.fromCharCode(...new Uint8Array(signature)));
+
   const jwt = `${toSign}.${signatureBase64}`;
 
+  // アクセストークン取得
   const res = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`,
   });
+
   const data = await res.json();
   return data.access_token;
 }
 
-// PEM形式文字列をArrayBufferに変換
-function str2ab(str){
-  const b64 = str
-    .replace(/-----[^-]+-----/g, "")
-    .replace(/\s+/g, "");
+// PEM文字列をArrayBufferへ変換
+function pemToArrayBuffer(pem) {
+  const b64 = pem.replace(/-----[^-]+-----/g, "").replace(/\s+/g, "");
   const binary = atob(b64);
   const buffer = new ArrayBuffer(binary.length);
   const bytes = new Uint8Array(buffer);
@@ -57,22 +62,24 @@ function str2ab(str){
   return buffer;
 }
 
-// firestore関数を定義
+// ================================
+// Firestore関連関数
+// ================================
 const firestore = {
-  // ドキュメントを取得
+  // ドキュメント取得
   async getDocument(env, collection, docId) {
-    const accessToken = await getAccessToken(env);
+    const token = await getAccessToken(env);
     const url = `https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents/${collection}/${docId}`;
     const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${accessToken}` },
+      headers: { Authorization: `Bearer ${token}` },
     });
     if (!res.ok) throw new Error(await res.text());
     return await res.json();
   },
 
-  // ドキュメントを作成または更新
+  // ドキュメント作成・更新
   async updateDocument(env, collection, docId, data) {
-    const accessToken = await getAccessToken(env);
+    const token = await getAccessToken(env);
     const url = `https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents/${collection}/${docId}?currentDocument.exists=true`;
 
     // Firestore形式に変換
@@ -85,7 +92,7 @@ const firestore = {
     const res = await fetch(url, {
       method: "PATCH",
       headers: {
-        Authorization: `Bearer ${accessToken}`,
+        Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
       body,
@@ -99,103 +106,64 @@ const firestore = {
 
 
 
-
 export default {
-  async fetch(request, env){
-    // チャネルアクセストークン
+  async fetch(request, env) {
     CHANNEL_ACCESS_TOKEN = env.CHANNEL_ACCESS_TOKEN;
 
-    // POST以外は拒否
-    if (request.method !== "POST") {
+    if (request.method !== "POST"){
       return new Response("Method Not Allowed", { status: 405 });
     }
 
-    // リクエストボディをパース
     const body = await request.json();
-
-    // イベント情報を取得
     const events = body.events;
-    if (!events || events.length === 0) {
-      return new Response("No events", { status: 200 });
-    }
 
-    // 各イベントを順に処理
     for (const event of events) {
+      const replyToken = event.replyToken;
+      const userId = event.source.userId;
 
-      const replyToken = event.replyToken; // リプレイトークン
-      const userId = event.source.userId; // ユーザーID
+      switch (event.type) {
+        case "message":
+          const getMessage = event.message?.text || "";
 
-      // LINEで送られてきたメッセージイベントによって分岐
-      switch (event.type){
-        case 'message':
-
-          const getMessage = event.message?.text || ''; // テキスト内容を取得 nullやundefinedでもエラーにならないように
-
-          switch (getMessage){
-            case '欠時数確認':
-              sendUserAbsence(userId, replyToken);
+          switch (getMessage) {
+            case "欠時数確認":
+              await sendUserAbsence(env, userId, replyToken);
               break;
 
             case 'ヘルプ':
               const text =
               'Q.\nボタンの色を変えたらボタンの文字が見えなくなりました。どうしたらいいですか。\nA.\n半角テキストで、「colorCode」と送信すると、設定から自分でカラーコードを変更する時の状態にできます。\n\n\nQ.\n授業の名前がみつかりません。\nA.\nLINEというアプリを使っている構造上、授業の名前が長すぎると、名前を全て描画できなくなってしまうことがあります。そのため、授業の名前を一部省略して表示しています。誰でもどの授業か分かるように努めていますが、もし自分が探している授業がどれか分からなかった場合、フィードバックでお伝えください。\n\n\n\n\nVersion 2.1.0\n最近の更新内容\n・時間割関係及び欠時数関係の処理を、時間割アプリとして変更\n・毎週金曜の欠時数アラートメッセージの廃止\n→いずれ復活させます';
-
               replyTokenMessage(replyToken, text);
-
               break;
 
-            case 'フィードバック':
-              replyTokenMessage(replyToken, 'フィードバック内容をできるだけ詳細に、ラインのトークでお送りください。');
-
-              // フィードバックモードに変更
-              await firestore.updateDocument(env, userId, 'setting', {feedback: true});
-
+            case "フィードバック":
+              await replyTokenMessage(replyToken, 'フィードバック内容をできるだけ詳細に送信してください。');
+              await firestore.updateDocument(env, userId, 'timetable', { 101: '現代の国語ア' });
               break;
 
-            case 'test':
-              // Firestore に書き込み
-              await firestore.updateDocument(env, userId, 'timetable', {101: '現代の国語ア'});
-
+            case "test":
+              await firestore.updateDocument(env, userId, 'timetable', { 101: 'test' });
+              await replyTokenMessage(replyToken, "Firestore にデータを保存しました。");
               break;
 
             default:
-              // 設定を取得
-              const setting = await getDocument(env, collection, docId);
-
-              // フィードバックを送りたいのかチェック
-              if (setting['feedback']){
-                replyTokenMessage(replyToken, 'フィードバックありがとうございました。追ってこちらから連絡することがございます。');
-                firestore.updateDocument(`${userId}/setting`, {feedback: false}, true);
-                const now = new Date();
-                const month = now.getMonth() + 1; // 月(0始まりなので+1する)
-                const date = now.getDate();       // 日
-                const hour = now.getHours();      // 時(0〜23)
-                const minute = now.getMinutes();  // 分
-                const data = {
-                  [`${month}/${date} ${hour}h${minute}m ${userId}`]: getMessage
-                };
-                firestore.updateDocument(`feedback/all`, data, true);
+              // 設定情報を取得して判定
+              try {
+                const doc = await firestore.getDocument(env, userId, 'setting');
+                if (doc['feedback']){
+                  await replyTokenMessage(replyToken, "フィードバックありがとうございました！");
+                  await firestore.updateDocument(env, userId, 'setting', { feedback: "false" });
+                }
+              }catch{
+                await replyTokenMessage(replyToken, "フィードバック送信に失敗しました。お手数ですが再度フィードバックをお送りください。");
               }
-
               break;
           }
-
-          break;
-        case 'follow':
-          // ブロック解除時にも有効
-
-          // 歓迎メッセージ
-          replyTokenMessage(replyToken, 'ようこそ新宿山吹の時間割へ');
-
-          // ユーザーDBが存在しない時は作成
-          makeUserDB(userId);
-
-          // userIdが登録されていない時登録
-          setUserId(userId);
-
           break;
 
-        case 'postback':
+        case "follow":
+          await replyTokenMessage(replyToken, "ようこそ!時間割管理Botへ!");
+          // await makeUserDB(env, userId);
           break;
 
         default:
@@ -203,42 +171,71 @@ export default {
       }
     }
 
-
-
-    // レスポンスを返す
     return new Response("OK", { status: 200 });
   },
 };
 
 
-// replyTokenで返信
+
+// replyToken返信
 async function replyTokenMessage(replyToken, message) {
   const headers = {
     "Content-Type": "application/json",
-    "Authorization": `Bearer ${CHANNEL_ACCESS_TOKEN}`,
+    Authorization: `Bearer ${CHANNEL_ACCESS_TOKEN}`,
   };
 
   const body = JSON.stringify({
     replyToken,
-    messages: [
-      {
-        type: "text",
-        text: message,
-      },
-    ],
+    messages: [{ type: "text", text: message }],
   });
 
-  const res = await fetch("https://api.line.me/v2/bot/message/reply", {
+  await fetch("https://api.line.me/v2/bot/message/reply", {
     method: "POST",
     headers,
     body,
   });
-
-  await res.text();
 }
 
 
-// 
-async function sendUserAbsence(userId, replyToken){
+// 欠時数一覧をテキストメッセージで送信する
+async function sendUserAbsence(env, replyToken, userId){
+  // 欠時数と時間割情報取得
+  const absenceDoc = await firestore.getDocument(env, userId, 'absence');
+  const timetableDoc = await firestore.getDocument(env, userId, 'timetable');
 
+  // 欠時数情報を入れとくやつ
+  let absenceText = '';
+
+  // 整形
+  for (let i = 0; i < 30; i++){
+    // 曜日
+    if (i % 6 == 0){
+      if (i != 0){
+        absenceText += `\n${'月火水木金'[i/6]}曜\n`;
+      }else{
+        absenceText += `${'月火水木金'[i/6]}曜\n`;
+      }
+    }
+    // 時限
+    absenceText += String((i%6)*2+1) + '-' + String((i%6)*2+2) + '限 ';
+    // 授業名と欠時数
+    if (absenceDoc[timetableDoc[i+101]] === undefined){
+      absenceText += '\n';
+    }else{
+      absenceText += `${timetableDoc[i+101]} : ${absenceDoc[timetableDoc[i+101]]}\n`;
+    }
+  }
+
+  // 総欠時を追加
+  absenceText += '\n';
+  const absence = Object.values(absenceDoc);
+  let sum = 0;
+  for (const i of absence){
+    sum += i;
+  }
+  absenceText += `総欠時 : ${sum}`;
+
+
+  // 送信
+  replyTokenMessage(replyToken, absenceText);
 }
