@@ -10,7 +10,7 @@ import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/1
 const CHANNEL_ACCESS_TOKEN =
 'G4T1pSCV/EOV78nbEp9R3FGrAG+a3u3oBRJ5ZlvTrwqpaoTP+EvoupeqHumqdo47Rc3T0MElZqVwLwzDpImzrGfBW/SHHNASZ7zd6/r9JC2hvvTU221y8uePzocgjb8ndAOOej2Sr4ZzfPjIzDlewwdB04t89/1O/w1cDnyilFU=';
 
-let db, auth, userId;
+let db, auth;
 
 
 
@@ -46,29 +46,8 @@ async function getData(path1, path2){
 
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env){
     const url = new URL(request.url);
-
-    // ✅ 動作確認用（/webhook以外にアクセスした場合）
-    if (url.pathname !== "/webhook") {
-      return new Response("LINE Bot is running on Cloudflare Workers!", {
-        status: 200,
-      });
-    }
-
-    // ✅ LINEからのPOSTでなければ終了
-    if (request.method !== "POST") {
-      return new Response("Method Not Allowed", { status: 405 });
-    }
-
-    // ✅ 受信データをJSONとしてパース
-    let body;
-    try {
-      body = await request.json();
-    } catch (err) {
-      return new Response("Invalid JSON", { status: 400 });
-    }
-
     // ✅ イベント情報を取得（メッセージがない場合は無視）
     const event = body.events?.[0];
     if (!event || !event.message || !event.replyToken) {
@@ -85,28 +64,31 @@ export default {
       "Authorization": `Bearer ${CHANNEL_ACCESS_TOKEN}`, // ←環境変数からトークンを取得に切り替える
     };
 
-    const payload = {
-      replyToken: event.replyToken,
-      messages: [
-        {
-          type: "text",
-          text: `オウム返し：${userMessage}`,
-        },
-      ],
-    };
-
-    const res = await fetch(replyEndpoint, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(payload),
-    });
-
-    if (!res.ok) {
-      const errorText = await res.text();
-      console.error("LINE API Error:", errorText);
-      return new Response("Error from LINE API", { status: 500 });
-    }
+    replyTokenMessage('死ね');
 
     return new Response("OK", { status: 200 });
   },
 };
+
+
+// 返信
+async function replyTokenMessage(message){
+
+  const payload = {
+    replyToken: event.replyToken,
+    messages: [
+      {
+        type: "text",
+        text: message,
+      },
+    ],
+  };
+
+  const res = await fetch(replyEndpoint, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  await res.text();
+}
