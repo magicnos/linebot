@@ -11,7 +11,9 @@ const client = new Client({
 
 // firestore初期化
 const serviceAccount = JSON.parse(
-  process.env.FIREBASE_SERVICE_KEY.replace(/\\n/g, '\n')
+  process.env.FIREBASE_SERVICE_KEY
+    .replace(/\r?\n/g, '\\n')  // まず全改行を \n に置換
+    .trim()                     // 先頭/末尾の空白・改行を削除
 );
 if (!admin.apps.length) {
   admin.initializeApp({
