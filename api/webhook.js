@@ -1,17 +1,21 @@
-import { Client } from '@line/bot-sdk';
+import Client from '@line/bot-sdk';
+import admin from 'firebase-admin';
 
 
-// 環境変数からLINEアクセストークンとシークレットを取得
+// linebot初期化
 const config = {
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
   channelSecret: process.env.LINE_CHANNEL_SECRET,
 };
-
-// LINEクライアントを初期化
 const client = new Client(config);
 
-// Firestore 風の関数はここでは外部関数として呼び出す想定
-// 例: firestore.getDocument / firestore.updateDocument / makeUserDB など
+
+// firestore初期化
+const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_KEY);
+admin.initializeApp({credential: admin.credential.cert(serviceAccount),});
+const db = admin.firestore(); // Firestore インスタンス取得
+
+
 
 export default async function handler(req, res) {
   // POST以外のリクエストは拒否
@@ -40,9 +44,9 @@ export default async function handler(req, res) {
           const getMessage = event.message?.text || '';
 
           switch (getMessage) {
-            case '欠時数確認':
+            case '欠時数をテキストで表示':
               // ユーザーの欠時数を取得して返信
-              //await sendUserAbsence(replyToken, userId);
+              await sendUserAbsence(userId, replyToken);
               break;
 
             case 'ヘルプ':
@@ -55,22 +59,22 @@ export default async function handler(req, res) {
               break;
 
             case 'フィードバック':
-              //await replyTokenMessage(replyToken, 'フィードバック内容を詳細にLINEでお送りください。');
-              //await firestore.updateDocument(`${userId}/setting`, { feedback: true }, true);
+              await replyTokenMessage(replyToken, 'フィードバック内容を詳細にLINEでお送りください。');
+              await updateDocument(`${userId}/setting`, { feedback: true });
               break;
 
             default:
               // 設定やフィードバックの処理
-              //const setting = await firestore.getDocument(`${userId}/setting`).obj;
+              const setting = await getDocument(`${userId}/setting`);
 
               // フィードバック処理
-              // if (setting['feedback']) {
-              //   await replyTokenMessage(replyToken, 'フィードバックありがとうございました。');
-              //   await firestore.updateDocument(`${userId}/setting`, { feedback: false }, true);
-              //   const now = new Date();
-              //   const key = `${now.getMonth()+1}/${now.getDate()} ${now.getHours()}h${now.getMinutes()}m ${userId}`;
-              //   await firestore.updateDocument('feedback/all', { [key]: getMessage }, true);
-              // }
+              if (setting['feedback']) {
+                await replyTokenMessage(replyToken, 'フィードバックありがとうございました。');
+                await updateDocument(`${userId}/setting`, { feedback: false });
+                const now = new Date();
+                const key = `${now.getMonth()+1}/${now.getDate()} ${now.getHours()}h${now.getMinutes()}m ${userId}`;
+                await updateDocument('feedback/all', { [key]: getMessage });
+              }
 
               break;
           }
@@ -78,15 +82,12 @@ export default async function handler(req, res) {
 
         case 'follow':
           // 新規フォロー時の処理
-          //await replyTokenMessage(replyToken, 'ようこそ新宿山吹の時間割へ');
+          await replyTokenMessage(replyToken, 'ようこそ新宿山吹の時間割へ');
           //await makeUserDB(userId);
           //await setUserId(userId);
           break;
 
         case 'postback':
-          // ポストバックデータを取得
-          const postData = event.postback.data;
-
           break;
 
         default:
@@ -104,4 +105,60 @@ export default async function handler(req, res) {
 // replyToken返信
 async function replyTokenMessage(replyToken, text) {
   await client.replyMessage(replyToken, { type: 'text', text });
+}
+
+
+// DB取得
+async function getDocument(path){
+  const docRef = db.doc(path);
+  const docSnap = await docRef.get();
+  return docSnap.data(); // オブジェクトで返却
+}
+
+
+// DB更新(部分更新)
+async function updateDocument(path, data) {
+  const docRef = db.doc(path);
+  await docRef.set(data, true);
+}
+
+
+// 欠時数をテキストで送信
+async function sendUserAbsence(userId, replyToken){
+  const absenceDoc = await getDocument(`${userId}/absence`);
+  const timetableDoc = await getDocument(`${userId}/timetable`);
+
+  let sendText = '';
+
+  // 整形
+  for (let i = 0; i < 30; i++){
+    // 曜日
+    if (i % 6 == 0){
+      if (i != 0){
+        sendText += `\n${'月火水木金'[i/6]}曜\n`;
+      }else{
+        sendText += `${'月火水木金'[i/6]}曜\n`;
+      }
+    }
+    // 時限
+    sendText += String((i%6)*2+1) + '-' + String((i%6)*2+2) + '限 ';
+    // 授業名と欠時数
+    if (absenceDoc[timetableDoc[i+101]] === undefined){
+      sendText += '\n';
+    }else{
+      sendText += `${timetableDoc[i+101]} : ${absenceDoc[timetableDoc[i+101]]}\n`;
+    }
+  }
+
+  // 総欠時を追加
+  sendText += '\n';
+  const absence = Object.values(absenceDoc);
+  let sum = 0;
+  for (const i of absence){
+    sum += i;
+  }
+  sendText += `総欠時 : ${sum}`;
+
+  // 送信
+  replyTokenMessage(replyToken, sendText);
 }
