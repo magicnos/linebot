@@ -3,7 +3,7 @@ import express from 'express';
 
 const app = express();
 
-// 環境変数に設定しておく
+// 環境変数
 const config = {
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
   channelSecret: process.env.LINE_CHANNEL_SECRET
@@ -11,7 +11,7 @@ const config = {
 
 const client = new Client(config);
 
-// LINE署名チェック用ミドルウェア
+// --- Webhookエンドポイント ---
 app.post('/api/webhook', middleware(config), async (req, res) => {
   try {
     const events = req.body.events;
@@ -23,16 +23,25 @@ app.post('/api/webhook', middleware(config), async (req, res) => {
   }
 });
 
-// イベント処理（オウム返し）
+// --- イベント処理 ---
 async function handleEvent(event) {
   // テキストメッセージ以外は無視
   if (event.type !== 'message' || event.message.type !== 'text') return;
 
-  // 受け取ったテキストをそのまま返信
-  return client.replyMessage(event.replyToken, {
-    type: 'text',
-    text: `あなたはこう言いました: "${event.message.text}"`
-  });
+  // テキストをreplyTokenで返信する関数を呼ぶ
+  await replyText(event.replyToken, event.message.text);
+}
+
+// --- オウム返し関数 ---
+async function replyText(replyToken, text) {
+  try {
+    await client.replyMessage(replyToken, {
+      type: 'text',
+      text: `あなたはこう言いました: "${text}"`
+    });
+  } catch (err) {
+    console.error('返信エラー:', err);
+  }
 }
 
 export default app;
