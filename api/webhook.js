@@ -3,10 +3,14 @@ import { json } from 'micro';
 
 
 // linebotSDK?を初期化
-const config = {
-  channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
-  channelSecret: process.env.LINE_CHANNEL_SECRET
-};
+try{
+  const config = {
+    channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
+    channelSecret: process.env.LINE_CHANNEL_SECRET
+  };
+}catch{
+
+}
 const client = new Client(config);
 
 
