@@ -142,29 +142,27 @@ async function updateDocument(path, data) {
 
 // 欠時数をテキストで送信
 async function sendUserAbsence(userId, replyToken) {
-  try {
-    const absenceDoc = await getDocument(`${userId}/absence`);
-    const timetableDoc = await getDocument(`${userId}/timetable`);
+  const [absenceDoc, timetableDoc] = await Promise.all([
+    getDocument(`${userId}/absence`),
+    getDocument(`${userId}/timetable`)
+  ]);
 
-    let sendText = '';
+  let sendText = '';
 
-    for (let i = 0; i < 30; i++) {
-      if (i % 6 == 0) {
-        sendText += `${i !== 0 ? '\n' : ''}${'月火水木金'[Math.floor(i / 6)]}曜\n`;
-      }
-      sendText += `${(i % 6) * 2 + 1}-${(i % 6) * 2 + 2}限 `;
-      if (absenceDoc[timetableDoc[i + 101]] === undefined) {
-        sendText += '\n';
-      } else {
-        sendText += `${timetableDoc[i + 101]} : ${absenceDoc[timetableDoc[i + 101]]}\n`;
-      }
+  for (let i = 0; i < 30; i++){
+    if (i % 6 == 0){
+      sendText += `${i !== 0 ? '\n' : ''}${'月火水木金'[Math.floor(i / 6)]}曜\n`;
     }
-
-    const sum = Object.values(absenceDoc).reduce((a, b) => a + b, 0);
-    sendText += `\n総欠時 : ${sum}`;
-
-    await replyTokenMessage(replyToken, sendText);
-  } catch (err) {
-    console.error('sendUserAbsenceエラー:', err);
+    sendText += `${(i % 6) * 2 + 1}-${(i % 6) * 2 + 2}限 `;
+    if (absenceDoc[timetableDoc[i + 101]] === undefined){
+      sendText += '\n';
+    }else{
+      sendText += `${timetableDoc[i + 101]} : ${absenceDoc[timetableDoc[i + 101]]}\n`;
+    }
   }
+
+  const sum = Object.values(absenceDoc).reduce((a, b) => a + b, 0);
+  sendText += `\n総欠時 : ${sum}`;
+
+  await replyTokenMessage(replyToken, sendText);
 }
