@@ -49,67 +49,64 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
-    // LINEのWebhook以外へのアクセス確認用
+    // ✅ 動作確認用（/webhook以外にアクセスした場合）
     if (url.pathname !== "/webhook") {
-      return new Response("LINE Bot is running!", { status: 200 });
+      return new Response("LINE Bot is running on Cloudflare Workers!", {
+        status: 200,
+      });
     }
 
-    // Webhookイベント受信
-    const body = await request.json();
+    // ✅ LINEからのPOSTでなければ終了
+    if (request.method !== "POST") {
+      return new Response("Method Not Allowed", { status: 405 });
+    }
+
+    // ✅ 受信データをJSONとしてパース
+    let body;
+    try {
+      body = await request.json();
+    } catch (err) {
+      return new Response("Invalid JSON", { status: 400 });
+    }
+
+    // ✅ イベント情報を取得（メッセージがない場合は無視）
     const event = body.events?.[0];
+    if (!event || !event.message || !event.replyToken) {
+      return new Response("No valid event", { status: 200 });
+    }
 
-    if (!event) return new Response("No event", { status: 200 });
+    // ✅ メッセージ本文を取得
+    const userMessage = event.message.text;
 
-    // LINEの返信APIに送信
-    const replyToken = event.replyToken;
-    const message = event.message?.text || "";
+    // ✅ LINEの返信APIを呼び出し
+    const replyEndpoint = "https://api.line.me/v2/bot/message/reply";
+    const headers = {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${CHANNEL_ACCESS_TOKEN}`, // ←環境変数からトークンを取得に切り替える
+    };
 
-    await fetch("https://api.line.me/v2/bot/message/reply", {
+    const payload = {
+      replyToken: event.replyToken,
+      messages: [
+        {
+          type: "text",
+          text: `オウム返し：${userMessage}`,
+        },
+      ],
+    };
+
+    const res = await fetch(replyEndpoint, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${CHANNEL_ACCESS_TOKEN}`,
-      },
-      body: JSON.stringify({
-        replyToken: replyToken,
-        messages: [{ type: "text", text: `あなたのメッセージ: ${message}` }],
-      }),
+      headers,
+      body: JSON.stringify(payload),
     });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error("LINE API Error:", errorText);
+      return new Response("Error from LINE API", { status: 500 });
+    }
 
     return new Response("OK", { status: 200 });
   },
 };
-
-
-
-
-
-// メインの処理
-async function main(){
-  // DB初期化
-  await initFirebase();
-  // liff初期化とuserId取得
-  userId = await firstLiff();
-
-  // ユーザーの時間割情報と欠時数情報を取得
-  const timetableData = await getData(userId, 'timetable');
-  const absenceData = await getData(userId, 'absence');
-
-  // 時間割に時間割を表示
-  setTimetable(timetableData);
-
-  // 欠時数時間割に欠時数と欠時変更ボタンを設置
-  setButton(timetableData, absenceData);
-
-  // 時間割モーダル表示と内容セット
-  initModal();
-  attachCellEvents();
-
-  // 今日の曜日に赤枠をつける
-  highlightToday();
-  // 本日欠席機能
-  todayAbsence();
-}
-
-
-main();
