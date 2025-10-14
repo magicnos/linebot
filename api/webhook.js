@@ -1,6 +1,7 @@
 import { Client } from '@line/bot-sdk';
 import admin from 'firebase-admin';
 
+
 // linebot初期化
 const client = new Client({
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
