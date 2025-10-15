@@ -85,7 +85,7 @@ export default async function handler(req, res) {
 
                   for (let i = 0; i < userIdAll.length; i++){
                     const absence = await getDocument(`${userIdAll[i]}/absence`);
-                    const kari = Object.key(absence)
+                    const kari = Object.keys(absence)
                     const absence2 = {};
                     for (let k = 0; k < kari.length; k++){
                       absence2[kari[k]] = 0;
@@ -108,8 +108,8 @@ export default async function handler(req, res) {
               break;
 
             case 'follow':
-              await replyTokenMessage(replyToken, 'ようこそ新宿山吹の時間割へ');
               await createNewUserData(userId);
+              await replyTokenMessage(replyToken, 'ようこそ新宿山吹の時間割へ');
               break;
 
             default:
