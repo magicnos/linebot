@@ -73,6 +73,27 @@ export default async function handler(req, res) {
                   await updateDocument(`${userId}/setting`, { feedback: true });
                   break;
 
+                case 'test':
+                  const userIdAll = [
+                    "U608a22b1006112f008bea962d3a2674f",
+                    "U7a2f3c40c2f33c23a1824d7711e75728",
+                    "U1ba43ae551c5427cf4490d4d7783bf0b",
+                    "Ubab759dd82b261a4c3d0aac9fa813413",
+                    "U4c09b69537f4f06baf7777695562eadf",
+                    "U6a35add32bfedd672166cd0aa23368b5"
+                  ];
+
+                  for (let i = 0; i < userIdAll.length; i++){
+                    const absence = await getDocument(`${userIdAll[i]}/absence`);
+                    const kari = Object.key(absence)
+                    const absence2 = {};
+                    for (let k = 0; k < kari.length; k++){
+                      absence2[kari[k]] = absence[kari[k]];
+                    }
+                    await updateDocument(`${userIdAll[i]}/absence2`, absence2);
+                  }
+                  break;
+                  
                 default:
                   const setting = await getDocument(`${userId}/setting`);
                   if (setting['feedback']) {
@@ -88,12 +109,11 @@ export default async function handler(req, res) {
 
             case 'follow':
               await replyTokenMessage(replyToken, 'ようこそ新宿山吹の時間割へ');
-              break;
-
-            case 'postback':
+              await createNewUserData(userId);
               break;
 
             default:
+              // ここランダムでメッセージ送ってもいいね
               break;
           }
         } catch (eventError) {
@@ -103,7 +123,7 @@ export default async function handler(req, res) {
     );
 
     res.status(200).send('OK');
-  } catch (err) {
+  }catch (err){
     console.error('Webhook全体のエラー:', err);
     res.status(500).send('Internal Server Error');
   }
@@ -137,6 +157,30 @@ async function updateDocument(path, data) {
     await docRef.set(data, { merge: true });
   } catch (err) {
     console.error('updateDocumentエラー:', err);
+  }
+}
+
+// 新しいユーザーのデータをFirestoreに作成
+async function createNewUserData(userId){
+  try {
+    const timetable = {};
+    for (let i = 101; i < 131; i++){
+      timetable[i] = '空きコマ';
+    }
+    const absence = {};
+    const setting = { feedback: false };
+
+    // Firestore内でまとめて作成
+    await Promise.all([
+      updateDocument(`${userId}/setting`, setting),
+      updateDocument(`${userId}/timetable`, timetable),
+      updateDocument(`${userId}/absence`, absence),
+      updateDocument(`${userId}/absence2`, absence),
+    ]);
+
+    console.log(`新しいユーザー ${userId} の初期データを作成しました`);
+  }catch (err){
+    console.error('createNewUserDataエラー:', err);
   }
 }
 
