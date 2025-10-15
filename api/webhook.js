@@ -88,7 +88,7 @@ export default async function handler(req, res) {
                     const kari = Object.key(absence)
                     const absence2 = {};
                     for (let k = 0; k < kari.length; k++){
-                      absence2[kari[k]] = absence[kari[k]];
+                      absence2[kari[k]] = 0;
                     }
                     await updateDocument(`${userIdAll[i]}/absence2`, absence2);
                   }
