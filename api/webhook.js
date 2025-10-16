@@ -56,7 +56,7 @@ export default async function handler(req, res) {
             case 'message':
               const getMessage = event.message?.text || '';
 
-              switch (getMessage) {
+              switch (getMessage){
                 case '欠時数をテキストで表示':
                   await sendUserAbsence(userId, replyToken);
                   break;
@@ -71,27 +71,6 @@ export default async function handler(req, res) {
                 case 'フィードバック':
                   await replyTokenMessage(replyToken, 'フィードバック内容を詳細にLINEでお送りください。');
                   await updateDocument(`${userId}/setting`, { feedback: true });
-                  break;
-
-                case 'test':
-                  const userIdAll = [
-                    "U608a22b1006112f008bea962d3a2674f",
-                    "U7a2f3c40c2f33c23a1824d7711e75728",
-                    "U1ba43ae551c5427cf4490d4d7783bf0b",
-                    "Ubab759dd82b261a4c3d0aac9fa813413",
-                    "U4c09b69537f4f06baf7777695562eadf",
-                    "U6a35add32bfedd672166cd0aa23368b5"
-                  ];
-
-                  for (let i = 0; i < userIdAll.length; i++){
-                    const absence = await getDocument(`${userIdAll[i]}/absence`);
-                    const kari = Object.keys(absence)
-                    const absence2 = {};
-                    for (let k = 0; k < kari.length; k++){
-                      absence2[kari[k]] = 0;
-                    }
-                    await updateDocument(`${userIdAll[i]}/absence2`, absence2);
-                  }
                   break;
                   
                 default:
@@ -186,8 +165,9 @@ async function createNewUserData(userId){
 
 // 欠時数をテキストで送信
 async function sendUserAbsence(userId, replyToken) {
-  const [absenceDoc, timetableDoc] = await Promise.all([
+  const [absenceDoc, absence2Doc, timetableDoc] = await Promise.all([
     getDocument(`${userId}/absence`),
+    getDocument(`${userId}/absence2`),
     getDocument(`${userId}/timetable`)
   ]);
 
@@ -198,14 +178,21 @@ async function sendUserAbsence(userId, replyToken) {
       sendText += `${i !== 0 ? '\n' : ''}${'月火水木金'[Math.floor(i / 6)]}曜\n`;
     }
     sendText += `${(i % 6) * 2 + 1}-${(i % 6) * 2 + 2}限 `;
-    if (absenceDoc[timetableDoc[i + 101]] === undefined){
+    const className = timetableDoc[i + 101];
+    if (absenceDoc[className] === undefined){
       sendText += '\n';
     }else{
-      sendText += `${timetableDoc[i + 101]} : ${absenceDoc[timetableDoc[i + 101]]}\n`;
+      sendText += `${className} : ${ Number(absenceDoc[className]) + Number(absence2Doc[className]) }\n`;
     }
   }
 
-  const sum = Object.values(absenceDoc).reduce((a, b) => a + b, 0);
+  let sum = 0;
+  for (const key in absenceDoc){
+    sum += Number(absenceDoc[key]);
+  }
+  for (const key in absence2Doc){
+    sum += Number(absence2Doc[key]);
+  }
   sendText += `\n総欠時 : ${sum}`;
 
   await replyTokenMessage(replyToken, sendText);
