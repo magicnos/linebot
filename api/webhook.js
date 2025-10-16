@@ -173,6 +173,48 @@ async function sendUserAbsence(userId, replyToken) {
 
   let sendText = '';
 
+  // 前期のみ
+  sendText += '[前期のみ]';
+  for (let i = 0; i < 30; i++){
+    if (i % 6 == 0){
+      sendText += `${i !== 0 ? '\n' : ''}${'月火水木金'[Math.floor(i / 6)]}曜\n`;
+    }
+    sendText += `${(i % 6) * 2 + 1}-${(i % 6) * 2 + 2}限 `;
+    const className = timetableDoc[i + 101];
+    if (absenceDoc[className] === undefined){
+      sendText += '\n';
+    }else{
+      sendText += `${className} : ${absenceDoc[className]}\n`;
+    }
+  }
+  let sum1 = 0;
+  for (const key in absenceDoc){
+    sum1 += Number(absenceDoc[key]);
+  }
+  sendText += `\n総欠時 : ${sum1}`;
+
+  // 後期のみ
+  sendText += '\n\n[後期のみ]';
+  for (let i = 0; i < 30; i++){
+    if (i % 6 == 0){
+      sendText += `${i !== 0 ? '\n' : ''}${'月火水木金'[Math.floor(i / 6)]}曜\n`;
+    }
+    sendText += `${(i % 6) * 2 + 1}-${(i % 6) * 2 + 2}限 `;
+    const className = timetableDoc[i + 101];
+    if (absenceDoc[className] === undefined){
+      sendText += '\n';
+    }else{
+      sendText += `${className} : ${absence2Doc[className]}\n`;
+    }
+  }
+  let sum2 = 0;
+  for (const key in absence2Doc){
+    sum2 += Number(absence2Doc[key]);
+  }
+  sendText += `\n総欠時 : ${sum2}`;
+
+  // 年間合計
+  sendText += '\n\n[年間合計]';
   for (let i = 0; i < 30; i++){
     if (i % 6 == 0){
       sendText += `${i !== 0 ? '\n' : ''}${'月火水木金'[Math.floor(i / 6)]}曜\n`;
@@ -185,15 +227,16 @@ async function sendUserAbsence(userId, replyToken) {
       sendText += `${className} : ${ Number(absenceDoc[className]) + Number(absence2Doc[className]) }\n`;
     }
   }
-
-  let sum = 0;
+  let sum3 = 0;
   for (const key in absenceDoc){
-    sum += Number(absenceDoc[key]);
+    sum3 += Number(absenceDoc[key]);
   }
   for (const key in absence2Doc){
-    sum += Number(absence2Doc[key]);
+    sum3 += Number(absence2Doc[key]);
   }
-  sendText += `\n総欠時 : ${sum}`;
+  sendText += `\n総欠時 : ${sum3}`;
 
+
+  // 送信
   await replyTokenMessage(replyToken, sendText);
 }
