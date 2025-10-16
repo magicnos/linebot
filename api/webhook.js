@@ -148,6 +148,8 @@ async function createNewUserData(userId){
     }
     const absence = {};
     const setting = { feedback: false };
+    const allUser = await getDocument('userId/all');
+    const allUserId = { [Object.keys(allUser).length]: userId };
 
     // Firestore内でまとめて作成
     await Promise.all([
@@ -155,6 +157,7 @@ async function createNewUserData(userId){
       updateDocument(`${userId}/timetable`, timetable),
       updateDocument(`${userId}/absence`, absence),
       updateDocument(`${userId}/absence2`, absence),
+      updateDocument('userId/all', allUserId),
     ]);
 
     console.log(`新しいユーザー ${userId} の初期データを作成しました`);
