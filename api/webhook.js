@@ -174,7 +174,7 @@ async function sendUserAbsence(userId, replyToken) {
   let sendText = '';
 
   // 前期のみ
-  sendText += '\n\n=======前期のみ=======\n';
+  sendText += '=======前期のみ=======\n';
   for (let i = 0; i < 30; i++){
     if (i % 6 == 0){
       sendText += `${i !== 0 ? '\n' : ''}${'月火水木金'[Math.floor(i / 6)]}曜\n`;
