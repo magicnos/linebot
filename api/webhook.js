@@ -191,7 +191,8 @@ async function sendUserAbsence(userId, replyToken) {
   for (const key in absenceDoc){
     sum1 += Number(absenceDoc[key]);
   }
-  sendText += `\n総欠時 : ${sum1}`;
+  sendText += `\n総欠時 : ${sum1}\n`;
+  sendText += '===================';
 
   // 後期のみ
   sendText += '\n\n=======後期のみ=======\n';
@@ -211,10 +212,11 @@ async function sendUserAbsence(userId, replyToken) {
   for (const key in absence2Doc){
     sum2 += Number(absence2Doc[key]);
   }
-  sendText += `\n総欠時 : ${sum2}`;
+  sendText += `\n総欠時 : ${sum2}\n`;
+  sendText += '===================';
 
   // 年間合計
-  sendText += '\n\n=======年間合計=======';
+  sendText += '\n\n=======年間合計=======\n';
   for (let i = 0; i < 30; i++){
     if (i % 6 == 0){
       sendText += `${i !== 0 ? '\n' : ''}${'月火水木金'[Math.floor(i / 6)]}曜\n`;
@@ -234,7 +236,8 @@ async function sendUserAbsence(userId, replyToken) {
   for (const key in absence2Doc){
     sum3 += Number(absence2Doc[key]);
   }
-  sendText += `\n総欠時 : ${sum3}`;
+  sendText += `\n総欠時 : ${sum3}\n`;
+  sendText += '===================';
 
 
   // 送信
