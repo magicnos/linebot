@@ -2,6 +2,11 @@ import { Client } from '@line/bot-sdk';
 import admin from 'firebase-admin';
 
 
+const changeMonth = 10;
+const changeDay = 9;
+
+
+
 // linebot初期化
 const client = new Client({
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
@@ -168,68 +173,70 @@ async function createNewUserData(userId){
 
 // 欠時数をテキストで送信
 async function sendUserAbsence(userId, replyToken) {
-  const [absenceDoc, absence2Doc, timetableDoc] = await Promise.all([
+  const [absenceDoc, absence2Doc, timetableDoc, settingDoc] = await Promise.all([
     getDocument(`${userId}/absence`),
     getDocument(`${userId}/absence2`),
-    getDocument(`${userId}/timetable`)
+    getDocument(`${userId}/timetable`),
+    getDocument(`${userId}/setting`)
   ]);
 
-  let sendText = '';
+  let sendText1 = '', sendText2 = '', sendText3 = '';
+
 
   // 前期のみ
-  sendText += '=======前期のみ=======\n';
+  sendText1 += '=======前期のみ=======\n';
   for (let i = 0; i < 30; i++){
     if (i % 6 == 0){
-      sendText += `${i !== 0 ? '\n' : ''}${'月火水木金'[Math.floor(i / 6)]}曜\n`;
+      sendText1 += `${i !== 0 ? '\n' : ''}${'月火水木金'[Math.floor(i / 6)]}曜\n`;
     }
-    sendText += `${(i % 6) * 2 + 1}-${(i % 6) * 2 + 2}限 `;
+    sendText1 += `${(i % 6) * 2 + 1}-${(i % 6) * 2 + 2}限 `;
     const className = timetableDoc[i + 101];
     if (absenceDoc[className] === undefined){
-      sendText += '\n';
+      sendText1 += '\n';
     }else{
-      sendText += `${className} : ${absenceDoc[className]}\n`;
+      sendText1 += `${className} : ${absenceDoc[className]}\n`;
     }
   }
   let sum1 = 0;
   for (const key in absenceDoc){
     sum1 += Number(absenceDoc[key]);
   }
-  sendText += `\n総欠時 : ${sum1}\n`;
-  sendText += '===================';
+  sendText1 += `\n総欠時 : ${sum1}\n===================`;
+
 
   // 後期のみ
-  sendText += '\n\n=======後期のみ=======\n';
+  sendText2 += '=======後期のみ=======\n';
   for (let i = 0; i < 30; i++){
     if (i % 6 == 0){
-      sendText += `${i !== 0 ? '\n' : ''}${'月火水木金'[Math.floor(i / 6)]}曜\n`;
+      sendText2 += `${i !== 0 ? '\n' : ''}${'月火水木金'[Math.floor(i / 6)]}曜\n`;
     }
-    sendText += `${(i % 6) * 2 + 1}-${(i % 6) * 2 + 2}限 `;
+    sendText2 += `${(i % 6) * 2 + 1}-${(i % 6) * 2 + 2}限 `;
     const className = timetableDoc[i + 101];
     if (absenceDoc[className] === undefined){
-      sendText += '\n';
+      sendText2 += '\n';
     }else{
-      sendText += `${className} : ${absence2Doc[className]}\n`;
+      sendText2 += `${className} : ${absence2Doc[className]}\n`;
     }
   }
   let sum2 = 0;
   for (const key in absence2Doc){
     sum2 += Number(absence2Doc[key]);
   }
-  sendText += `\n総欠時 : ${sum2}\n`;
-  sendText += '===================';
+  sendText2 += `\n総欠時 : ${sum2}\n===================`;
+
 
   // 年間合計
-  sendText += '\n\n=======年間合計=======\n';
+  sendText3 += '=======年間合計=======\n';
   for (let i = 0; i < 30; i++){
     if (i % 6 == 0){
-      sendText += `${i !== 0 ? '\n' : ''}${'月火水木金'[Math.floor(i / 6)]}曜\n`;
+      sendText3 += `${i !== 0 ? '\n' : ''}${'月火水木金'[Math.floor(i / 6)]}曜\n`;
     }
-    sendText += `${(i % 6) * 2 + 1}-${(i % 6) * 2 + 2}限 `;
+    sendText3 += `${(i % 6) * 2 + 1}-${(i % 6) * 2 + 2}限 `;
     const className = timetableDoc[i + 101];
     if (absenceDoc[className] === undefined){
-      sendText += '\n';
+      sendText3 += '\n';
     }else{
-      sendText += `${className} : ${ Number(absenceDoc[className]) + Number(absence2Doc[className]) }\n`;
+      sendText3 += `${className} : ${ Number(absenceDoc[className]) + Number(absence2Doc[className]) }\n`;
     }
   }
   let sum3 = 0;
@@ -239,10 +246,47 @@ async function sendUserAbsence(userId, replyToken) {
   for (const key in absence2Doc){
     sum3 += Number(absence2Doc[key]);
   }
-  sendText += `\n総欠時 : ${sum3}\n`;
-  sendText += '===================';
-
+  sendText3 += `\n総欠時 : ${sum3}\n===================`;
 
   // 送信
-  await replyTokenMessage(replyToken, sendText);
+  switch (settingDoc.absenceText){
+    case 1:
+      await replyTokenMessage(replyToken, sendText1);
+      break;
+    case 2:
+      await replyTokenMessage(replyToken, sendText2);
+      break;
+    case 3:
+      if (checkHalf()){
+        await replyTokenMessage(replyToken, sendText1);
+      }else{
+        await replyTokenMessage(replyToken, sendText2);
+      }
+      break;
+    case 4:
+      await replyTokenMessage(replyToken, sendText3);
+      break;
+    case 5:
+      await replyTokenMessage(replyToken, `${sendText1}\n\n${sendText2}`);
+      break;
+    case 6:
+      await replyTokenMessage(replyToken, `${sendText1}\n\n${sendText2}\n\n${sendText3}`);
+      break;
+    default:
+      break;
+  }
+}
+
+
+// 前期後期判定
+function checkHalf(){
+  const now = new Date();
+  const month = now.getMonth() + 1; // 1~12
+  const day = now.getDate(); // 1〜31
+
+  if (month <= 3) return false; // 1~3月は後期
+  if (month < changeMonth) return true; // changeMonthより前なら前期
+  if (month > changeMonth) return false; // changeMonthより後なら後期
+  if (day <= changeDay) return true; // changeMonthの月かつchangeDay以下なら前期
+  return false; // あと後期
 }
