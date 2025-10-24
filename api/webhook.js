@@ -172,7 +172,7 @@ async function createNewUserData(userId){
 }
 
 // 欠時数をテキストで送信
-async function sendUserAbsence(userId, replyToken) {
+async function sendUserAbsence(userId, replyToken){
   const [absenceDoc, absence2Doc, timetableDoc, settingDoc] = await Promise.all([
     getDocument(`${userId}/absence`),
     getDocument(`${userId}/absence2`),
@@ -276,7 +276,6 @@ async function sendUserAbsence(userId, replyToken) {
       break;
   }
 }
-
 
 // 前期後期判定
 function checkHalf(){
