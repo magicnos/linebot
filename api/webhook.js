@@ -147,25 +147,37 @@ async function updateDocument(path, data) {
 // 新しいユーザーのデータをFirestoreに作成
 async function createNewUserData(userId){
   try {
-    const timetable = {};
-    for (let i = 101; i < 131; i++){
-      timetable[i] = '空きコマ';
-    }
-    const absence = {};
-    const setting = { feedback: false };
+    // オブジェクトを定義
+    const data = {
+      timetable:{},
+      absence:{
+        firstSemester: {},
+        secondSemester: {}
+      },
+      setting:{
+        absenceText: 3,
+        feedback: false,
+        time: "20:00",
+        week: [
+          false, false, false, false, false, false, false
+        ]
+      }
+    };
     const allUser = await getDocument('userId/all');
     const allUserId = { [Object.keys(allUser).length]: userId };
 
+    // dataを作成
+    for (let i = 0; i < 30; i++){
+      // 時間割
+      data['timetable'][String(i + 101)] = '空きコマ';
+    };
+
     // Firestore内でまとめて作成
     await Promise.all([
-      updateDocument(`${userId}/setting`, setting),
-      updateDocument(`${userId}/timetable`, timetable),
-      updateDocument(`${userId}/absence`, absence),
-      updateDocument(`${userId}/absence2`, absence),
+      updateDocument(`users/${userId}`, data),
       updateDocument('userId/all', allUserId),
     ]);
 
-    console.log(`新しいユーザー ${userId} の初期データを作成しました`);
   }catch (err){
     console.error('createNewUserDataエラー:', err);
   }
@@ -173,13 +185,6 @@ async function createNewUserData(userId){
 
 // 欠時数をテキストで送信
 async function sendUserAbsence(userId, replyToken){
-  // const [absenceDoc, absence2Doc, timetableDoc, settingDoc] = await Promise.all([
-  //   getDocument(`${userId}/absence`),
-  //   getDocument(`${userId}/absence2`),
-  //   getDocument(`${userId}/timetable`),
-  //   getDocument(`${userId}/setting`)
-  // ]);
-
   const doc = await getDocument(`users/${userId}`);
   const absenceDoc = doc.absence['firstSemester'];
   const absence2Doc = doc.absence['secondSemester'];
