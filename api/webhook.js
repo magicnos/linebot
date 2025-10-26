@@ -181,6 +181,7 @@ async function sendUserAbsence(userId, replyToken){
   // ]);
 
   const doc = getDocument(`users/${userId}`);
+  await replyTokenMessage(replyToken, JSON.stringfy(doc));
   const absenceDoc = doc.absence[firstSemester];
   const absence2Doc = doc.absence[secondSemester];
   const timetableDoc = doc.timetable;
