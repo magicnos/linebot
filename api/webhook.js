@@ -189,7 +189,7 @@ async function sendUserAbsence(userId, replyToken){
   const absenceDoc = doc.absence['firstSemester'];
   const absence2Doc = doc.absence['secondSemester'];
   const timetableDoc = doc.timetable;
-  const settingDoc = doc.setting;
+  const settingDoc = doc.noticeSetting;
 
   let sendText1 = '', sendText2 = '', sendText3 = '';
 
