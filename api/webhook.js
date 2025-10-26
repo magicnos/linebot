@@ -75,14 +75,14 @@ export default async function handler(req, res) {
 
                 case 'フィードバック':
                   await replyTokenMessage(replyToken, 'フィードバック内容を詳細にLINEでお送りください。');
-                  await updateDocument(`${userId}/setting`, { feedback: true });
+                  await updateDocument(`users/${userId}/setting`, { feedback: true });
                   break;
                   
                 default:
                   const setting = await getDocument(`${userId}/setting`);
                   if (setting['feedback']) {
                     await replyTokenMessage(replyToken, 'フィードバックありがとうございました。');
-                    await updateDocument(`${userId}/setting`, { feedback: false });
+                    await updateDocument(`users/${userId}/setting`, { feedback: false });
                     const now = new Date();
                     const key = `${now.getMonth()+1}/${now.getDate()} ${now.getHours()}h${now.getMinutes()}m ${userId}`;
                     await updateDocument('feedback/all', { [key]: getMessage });
@@ -173,12 +173,18 @@ async function createNewUserData(userId){
 
 // 欠時数をテキストで送信
 async function sendUserAbsence(userId, replyToken){
-  const [absenceDoc, absence2Doc, timetableDoc, settingDoc] = await Promise.all([
-    getDocument(`${userId}/absence`),
-    getDocument(`${userId}/absence2`),
-    getDocument(`${userId}/timetable`),
-    getDocument(`${userId}/setting`)
-  ]);
+  // const [absenceDoc, absence2Doc, timetableDoc, settingDoc] = await Promise.all([
+  //   getDocument(`${userId}/absence`),
+  //   getDocument(`${userId}/absence2`),
+  //   getDocument(`${userId}/timetable`),
+  //   getDocument(`${userId}/setting`)
+  // ]);
+
+  const doc = getDocument(`users/${userId}`);
+  const absenceDoc = doc.absence[firstSemester];
+  const absence2Doc = doc.absence[secondSemester];
+  const timetableDoc = doc.timetable;
+  const settingDoc = doc.setting;
 
   let sendText1 = '', sendText2 = '', sendText3 = '';
 
