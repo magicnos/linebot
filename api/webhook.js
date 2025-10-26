@@ -154,13 +154,15 @@ async function createNewUserData(userId){
         firstSemester: {},
         secondSemester: {}
       },
-      setting:{
-        absenceText: 3,
-        feedback: false,
+      noticeSetting:{
         time: "20:00",
         week: [
           false, false, false, false, false, false, false
         ]
+      },
+      nomalSetting:{
+        absenceText: 3,
+        feedback: false
       }
     };
     const allUser = await getDocument('userId/all');
