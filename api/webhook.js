@@ -96,6 +96,9 @@ export default async function handler(req, res) {
               await replyTokenMessage(replyToken, 'ようこそ新宿山吹の時間割へ');
               break;
 
+            case 'postback':
+              break;
+
             default:
               // ここランダムでメッセージ送ってもいいね
               break;
