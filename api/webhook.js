@@ -188,10 +188,10 @@ async function createNewUserData(userId){
 // 欠時数をテキストで送信
 async function sendUserAbsence(userId, replyToken){
   const doc = await getDocument(`users/${userId}`);
-  const absenceDoc = doc['absence']['firstSemester'];
-  const absence2Doc = doc['absence']['secondSemester'];
-  const timetableDoc = doc['timetable'];
-  const settingDoc = doc['nomalSetting'];
+  const absenceDoc = doc.absence['firstSemester'];
+  const absence2Doc = doc.absence['secondSemester'];
+  const timetableDoc = doc.timetable;
+  const settingDoc = doc.nomalSetting;
 
   let sendText1 = '', sendText2 = '', sendText3 = '';
 
