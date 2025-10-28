@@ -173,7 +173,7 @@ async function createNewUserData(userId, displayName){
     };
     const userInformation = { 
       active: true,
-      dispalyName: displayName
+      displayName: displayName
     };
 
     // dataを作成
