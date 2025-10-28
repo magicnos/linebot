@@ -79,8 +79,8 @@ export default async function handler(req, res) {
                   break;
 
                 default:
-                  const setting = await getDocument(`users/${userId}/nomalSetting`);
-                  if (setting['feedback']){
+                  const setting = await getDocument(`users/${userId}`);
+                  if (setting.nomalSetting.feedback){
                     await replyTokenMessage(replyToken, 'フィードバックありがとうございました。');
                     await updateDocument(`users/${userId}`, { ['nomalSetting.feedback']: false });
                     const now = new Date();
