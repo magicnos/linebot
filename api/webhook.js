@@ -92,7 +92,10 @@ export default async function handler(req, res) {
               break;
 
             case 'follow':
-              await createNewUserData(userId);
+              // LINEのプロフィール情報を取得
+              const profile = await client.getProfile(userId);
+              const displayName = profile.displayName; // LINEの表示名
+              await createNewUserData(userId, displayName);
               await replyTokenMessage(replyToken, 'ようこそ新宿山吹の時間割へ');
               break;
 
@@ -148,7 +151,7 @@ async function updateDocument(path, data){
 }
 
 // 新しいユーザーのデータをFirestoreに作成
-async function createNewUserData(userId){
+async function createNewUserData(userId, displayName){
   try {
     // オブジェクトを定義
     const data = {
@@ -168,8 +171,10 @@ async function createNewUserData(userId){
         feedback: false
       }
     };
-    const allUser = await getDocument('userId/all');
-    const allUserId = { [Object.keys(allUser).length]: userId };
+    const userInformation = { 
+      active: true,
+      dispalyName: displayName
+    };
 
     // dataを作成
     for (let i = 0; i < 30; i++){
@@ -180,7 +185,7 @@ async function createNewUserData(userId){
     // Firestore内でまとめて作成
     await Promise.all([
       updateDocument(`users/${userId}`, data),
-      updateDocument('userId/all', allUserId),
+      updateDocument(`userId/${userId}`, userInformation),
     ]);
 
   }catch (err){
