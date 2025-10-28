@@ -75,7 +75,7 @@ export default async function handler(req, res) {
 
                 case 'フィードバック':
                   await replyTokenMessage(replyToken, 'フィードバック内容をできるだけ詳細にLINEでお送りください。');
-                  await updateDocument(`users/${userId}`, { ['nomalSetting.feedback']: true });
+                  await updateDocument(`users/${userId}`, { nomalSetting: {feedback: true} });
                   break;
 
                 default:
