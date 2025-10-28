@@ -74,15 +74,15 @@ export default async function handler(req, res) {
                   break;
 
                 case 'フィードバック':
-                  await replyTokenMessage(replyToken, 'フィードバック内容を詳細にLINEでお送りください。');
-                  await updateDocument(`users/${userId}/setting`, { feedback: true });
+                  await replyTokenMessage(replyToken, 'フィードバック内容をできるだけ詳細にLINEでお送りください。');
+                  await updateDocument(`users/${userId}/nomalSetting`, { feedback: true });
                   break;
-                  
+
                 default:
-                  const setting = await getDocument(`${userId}/setting`);
-                  if (setting['feedback']) {
+                  const setting = await getDocument(`users/${userId}/nomalSetting`);
+                  if (setting['feedback']){
                     await replyTokenMessage(replyToken, 'フィードバックありがとうございました。');
-                    await updateDocument(`users/${userId}/setting`, { feedback: false });
+                    await updateDocument(`users/${userId}/nomalSetting`, { feedback: false });
                     const now = new Date();
                     const key = `${now.getMonth()+1}/${now.getDate()} ${now.getHours()}h${now.getMinutes()}m ${userId}`;
                     await updateDocument('feedback/all', { [key]: getMessage });
@@ -117,7 +117,7 @@ export default async function handler(req, res) {
 }
 
 // replyToken返信
-async function replyTokenMessage(replyToken, text) {
+async function replyTokenMessage(replyToken, text){
   try {
     await client.replyMessage(replyToken, { type: 'text', text });
   } catch (err) {
@@ -126,19 +126,19 @@ async function replyTokenMessage(replyToken, text) {
 }
 
 // DB取得
-async function getDocument(path) {
+async function getDocument(path){
   try {
     const docRef = db.doc(path);
     const docSnap = await docRef.get();
     return docSnap.data() || {};
-  } catch (err) {
+  }catch (err){
     console.error('getDocumentエラー:', err);
     return {};
   }
 }
 
 // DB更新(部分更新)
-async function updateDocument(path, data) {
+async function updateDocument(path, data){
   try {
     const docRef = db.doc(path);
     await docRef.set(data, { merge: true });
