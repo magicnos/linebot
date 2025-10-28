@@ -83,9 +83,9 @@ export default async function handler(req, res) {
                   if (setting.nomalSetting.feedback){
                     await replyTokenMessage(replyToken, 'フィードバックありがとうございました。');
                     await updateDocument(`users/${userId}`, { nomalSetting: {feedback: false}} );
-                    const now = new Date();
-                    const key = `${now.getMonth()+1}/${now.getDate()} ${now.getHours()}h${now.getMinutes()}m ${userId}`;
-                    await updateDocument('feedback/all', { [key]: getMessage });
+                    const no = new Date();
+                    const key = `${no.getMonth()+1}/${no.getDate()} ${no.getHours()}h${no.getMinutes()}m${no.getSeconds()}s`;
+                    await updateDocument(`feedback/${userId}`, { [key]: getMessage });
                   }
                   break;
               }
