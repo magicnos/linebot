@@ -1,0 +1,12 @@
+{
+  "name": "linebot",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "vercel dev"
+  },
+  "dependencies": {
+    "@line/bot-sdk": "^10.3.0",
+    "firebase-admin": "^13.5.0"
+  }
+}
